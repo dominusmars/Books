@@ -9,18 +9,25 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@googleapis/books": "^1.0.0",
+    "abstract-level": "^2.0.0",
+    "google-books-search": "^0.3.1",
+    "googleapis": "^144.0.0",
+    "level": "^8.0.0",
+    "next": "14.2.15",
+    "qrcode": "^1.5.4",
     "react": "^18",
-    "react-dom": "^18",
-    "next": "14.2.15"
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.15",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.15"
+    "typescript": "^5"
   }
 }
