@@ -2,7 +2,6 @@ import { open } from "lmdb";
 import * as lmdb from "lmdb";
 
 import crypto, { randomUUID } from "crypto";
-import { books } from "@googleapis/books";
 import fs from "fs";
 import { getSHA256Hash } from "@/utils/hash";
 import { addDays } from "@/utils/date";
@@ -45,7 +44,7 @@ export interface Ticket {
 }
 interface BookTicket {
     ticket: Ticket;
-    book: BookDocument;
+    book: BookDocument | undefined;
 }
 
 class DB {
@@ -68,21 +67,9 @@ class DB {
         });
         this.tickets = this.db.openDB({ name: "tickets" });
         this.books = this.db.openDB({ name: "books" });
-        this.init();
+        this.googleBooks = google.books({'version': "v1", auth:  process.env["GOOGLE_API_KEY"]});
     }
-    async init() {
-        const auth = new google.auth.GoogleAuth({
-            // Scopes can be specified either as an array or as a single, space-delimited string.
-            apiKey: process.env["GOOGLE_API_KEY"],
-            scopes: ["https://www.googleapis.com/auth/books"],
-        });
 
-        // Acquire an auth client, and bind it to all future calls
-        const authClient = (await auth.getClient()) as any;
-        google.options({ auth: authClient });
-
-        this.googleBooks = books("v1");
-    }
 
     async _callExpiredTicket(ticket: Ticket) {
         // Email Netid To return book
@@ -146,11 +133,6 @@ class DB {
         await this.books.put(book_id, book);
     }
     async addBook(name: string, qty: number): Promise<BookDocument> {
-        if (!this.googleBooks) {
-            console.log("Google API not initialized");
-            await delay(1000);
-            return await this.addBook(name, qty);
-        }
 
         if (name.length > 1000) {
             throw new Error("title cannot be more then 10000 char");
@@ -238,8 +220,7 @@ class DB {
 
             const book = this.books.get(value.book_id);
             if (!book) {
-                console.log(`unable to find book ${value.book_id}`);
-                continue;
+                console.log(`unable to find book ${value.book_id} ${value.book}`);
             }
 
             booktickets.push({

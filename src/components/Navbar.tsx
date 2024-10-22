@@ -43,7 +43,7 @@ export default function Navbar() {
                                     fill="rgba(255,255,255,.2)"
                                 />
                             </svg>
-                            Brand
+                            Book Club
                         </a>
                         {/*      <!-- Mobile trigger --> */}
                         <button
@@ -91,7 +91,7 @@ export default function Navbar() {
                                     <span>Home</span>
                                 </a>
                             </li>
-                            <li role="none" className="flex items-stretch">
+                            {/* <li role="none" className="flex items-stretch">
                                 <a
                                     role="menuitem"
                                     aria-current="page"
@@ -111,7 +111,7 @@ export default function Navbar() {
                                 >
                                     <span>Pricing</span>
                                 </a>
-                            </li>
+                            </li> */}
                             <li role="none" className="flex items-stretch">
                                 <a
                                     role="menuitem"

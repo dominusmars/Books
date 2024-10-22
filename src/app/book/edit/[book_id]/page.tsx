@@ -10,8 +10,8 @@ export default async function Page({ params }: { params: { book_id: string } }) 
     const tickets = await db.getTicketsForBook(params.book_id);
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4 text-black">
-            <h1 className="text-3xl font-bold mb-6">Borrow: {book.title}</h1>
-            <div className="flex gap-10 justify-center items-center sm:flex-col md:flex-row">
+            <h1 className="text-3xl font-bold mb-6">Edit: {book.title}</h1>
+            <div className="flex gap-10 justify-center items-center sm:flex-col md:flex-row xs:flex-col">
                 <div className="item w-[30%]">
                     <BookCard book={book} key={book.id} />
                 </div>
@@ -24,9 +24,9 @@ export default async function Page({ params }: { params: { book_id: string } }) 
                 </div>
             </div>
             <h1 className="text-3xl font-bold mb-6">Active Tickets</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-8xl">
                 {tickets.map((ticket) => {
-                    return <TicketCard ticket={ticket} key={ticket.id} />;
+                    return <TicketCard ticket={ticket} key={ticket.id} adminView />;
                 })}
             </div>
         </div>
