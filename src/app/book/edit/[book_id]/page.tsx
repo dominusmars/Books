@@ -15,8 +15,8 @@ export default async function Page({ params }: { params: { book_id: string } }) 
                 <div className="item w-[30%]">
                     <BookCard book={book} key={book.id} />
                 </div>
-                <div className="item w-[60%] ">
-                    <div className="mx-5 flex flex-col gap-3">
+                <div className="item w-[60%] flex justify-center">
+                    <div className="mx-5 flex flex-col gap-3 max-w-56">
                         <DecreaseQty book_id={book.id} />
                         <IncreaseQty book_id={book.id} />
                         <DeleteBook book_id={book.id} />

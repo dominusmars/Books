@@ -5,7 +5,7 @@ import crypto, { randomUUID } from "crypto";
 import fs from "fs";
 import { getSHA256Hash } from "@/utils/hash";
 import { addDays } from "@/utils/date";
-import { google } from "googleapis";
+import { books_v1, google, GoogleApis } from "googleapis";
 import { delay } from "@/utils/delay";
 
 export interface BookDocument {
@@ -50,9 +50,11 @@ interface BookTicket {
 class DB {
     private location: string;
     db: lmdb.RootDatabase<any, lmdb.Key>;
+    emailAt;
     tickets: lmdb.Database<Ticket, lmdb.Key>;
+    expired_tickets: lmdb.Database<Ticket, lmdb.Key>;
     books: lmdb.Database<BookDocument, lmdb.Key>;
-    googleBooks: any;
+    googleBooks: books_v1.Books;
     constructor() {
         this.location = "./db";
         if (fs.existsSync(this.location)) {
@@ -66,25 +68,26 @@ class DB {
             // valueEncoding: "json",
         });
         this.tickets = this.db.openDB({ name: "tickets" });
-        this.books = this.db.openDB({ name: "books" });
-        this.googleBooks = google.books({'version': "v1", auth:  process.env["GOOGLE_API_KEY"]});
-    }
+        this.expired_tickets = this.db.openDB({ name: "expired_tickets" });
 
+        this.books = this.db.openDB({ name: "books" });
+        this.googleBooks = google.books({ version: "v1", auth: process.env["GOOGLE_API_KEY"] });
+    }
 
     async _callExpiredTicket(ticket: Ticket) {
         // Email Netid To return book
     }
     async _checkTicketsForExpired() {
-        let tickets = await this.getTickets();
+        const tickets = await this.getTickets();
 
-        let date = new Date().getTime();
+        const date = new Date().getTime();
 
         for (let i = 0; i < tickets.length; i++) {
             const ticket = tickets[i];
-            let ticketDate = new Date(ticket.dateExpired).getTime();
+            const ticketDate = new Date(ticket.dateExpired).getTime();
             if (date < ticketDate) continue;
 
-            let emailedAt = new Date(ticket.emailAt).getTime();
+            const emailedAt = new Date(ticket.emailAt).getTime();
             if (date < emailedAt) continue;
             // Email Person
         }
@@ -104,14 +107,14 @@ class DB {
         if (!bookDoc) {
             throw new Error(`Unable to find book id ${id}`);
         }
-        let book: Book = { ...bookDoc, borrowable: await this._checkIfBookCanBeBorrowed(id) };
+        const book: Book = { ...bookDoc, borrowable: await this._checkIfBookCanBeBorrowed(id) };
 
         return book;
     }
 
     async getBooks() {
-        let books = [];
-        for await (const { key, value } of this.books.getRange()) {
+        const books = [];
+        for await (const { value } of this.books.getRange()) {
             books.push(value);
         }
         return books;
@@ -119,30 +122,35 @@ class DB {
     async removeBook(book_id: string) {
         await this.getBookById(book_id);
         await this.books.remove(book_id);
+
+        const tickets = await this.getTicketsForBook(book_id);
+
+        tickets.forEach((ticket) => {
+            this.returnBook(ticket.id);
+        });
     }
     async increaseQty(book_id: string) {
-        let book = await this.getBookById(book_id);
+        const book = await this.getBookById(book_id);
         book.qty = book.qty + 1;
         await this.books.put(book_id, book);
     }
     async decreaseQty(book_id: string) {
-        let book = await this.getBookById(book_id);
-        if (book.qty == 1) throw new Error("Unable to decrease qty below one");
+        const book = await this.getBookById(book_id);
+        if (book.qty <= 1) throw new Error("Unable to decrease qty below one");
 
         book.qty = book.qty - 1;
         await this.books.put(book_id, book);
     }
     async addBook(name: string, qty: number): Promise<BookDocument> {
-
         if (name.length > 1000) {
             throw new Error("title cannot be more then 10000 char");
         }
 
         // Check if book is in database
-        let checkBook = await this.books.get(name);
+        const checkBook = await this.books.get(name);
         if (checkBook) throw new Error(`${name} already exists`);
 
-        let id = getSHA256Hash(name);
+        const id = getSHA256Hash(name);
 
         const googleRequest = await this.googleBooks.volumes.list({
             q: name,
@@ -178,8 +186,8 @@ class DB {
     }
 
     async getTickets() {
-        let tickets = [];
-        for await (const { key, value } of this.tickets.getRange()) {
+        const tickets = [];
+        for await (const { value } of this.tickets.getRange()) {
             tickets.push(value);
         }
 
@@ -203,8 +211,8 @@ class DB {
         return ticket;
     }
     async _getTicketWithBook(book_id: string) {
-        let tickets = [];
-        for await (const { key, value } of this.tickets.getRange()) {
+        const tickets = [];
+        for await (const { value } of this.tickets.getRange()) {
             if (!(value.book_id == book_id)) continue;
 
             tickets.push(value);
@@ -214,8 +222,8 @@ class DB {
     }
 
     async getBookTicketsByNetID(netid: string): Promise<BookTicket[]> {
-        let booktickets = [];
-        for await (const { key, value } of this.tickets.getRange()) {
+        const booktickets = [];
+        for await (const { value } of this.tickets.getRange()) {
             if (!(value.netid == netid)) continue;
 
             const book = this.books.get(value.book_id);
@@ -232,23 +240,23 @@ class DB {
         return booktickets;
     }
     async _checkIfBookCanBeBorrowed(book_id: string) {
-        let book = await this.books.get(book_id);
+        const book = await this.books.get(book_id);
         if (!book) {
             throw new Error("Unable to find book by id");
         }
 
-        let tickets = await this._getTicketWithBook(book_id);
+        const tickets = await this._getTicketWithBook(book_id);
         return tickets.length < book.qty;
     }
 
     async borrowBook(book_id: string, personsName: string, netid: string): Promise<Ticket> {
-        let book = await this.getBookById(book_id);
+        const book = await this.getBookById(book_id);
 
         if (!(await this._checkIfBookCanBeBorrowed(book_id))) {
             throw new Error("Book cannot be borrowed already checked out");
         }
 
-        let ticket: Ticket = {
+        const ticket: Ticket = {
             book: book.title,
             book_id: book_id,
             dateBorrowed: new Date().toISOString(),
@@ -263,20 +271,21 @@ class DB {
         return ticket;
     }
     async returnBook(ticket_id: string) {
-        let ticket = await this.getTicket(ticket_id);
+        const ticket = await this.getTicket(ticket_id);
         if (!ticket) {
             throw new Error("Unable to find ticket");
         }
 
         await this.tickets.remove(ticket_id);
+        await this.expired_tickets.put(ticket_id, ticket);
     }
 
     async extendTicket(ticket_id: string) {
-        let ticket = await this.getTicket(ticket_id);
+        const ticket = await this.getTicket(ticket_id);
         if (!ticket) {
             throw new Error("Unable to find ticket");
         }
-        let newDate = addDays(new Date(), 14);
+        const newDate = addDays(new Date(), 14);
         ticket.dateExpired = newDate.toISOString();
 
         await this.tickets.put(ticket_id, ticket);

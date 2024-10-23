@@ -1,10 +1,14 @@
 import db from "@/db/db";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(request: NextRequest, { params }: { params: { ticket_id: string } }) {
-    const ticket_id = params.ticket_id;
+export async function POST(request: NextRequest) {
+    const requestJSON = await request.json();
+
     try {
-        await db.extendTicket(ticket_id);
+        const book_id = requestJSON.book_id;
+        if (!book_id) throw new Error("No book_id");
+
+        await db.decreaseQty(book_id);
 
         return NextResponse.json({ success: true });
     } catch (error: unknown) {

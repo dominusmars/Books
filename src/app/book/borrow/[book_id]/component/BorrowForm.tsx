@@ -1,28 +1,35 @@
 "use client";
+import { redirect } from "next/navigation";
 // components/FormComponent.js
 import { useState } from "react";
-
+import { useRouter } from "next/navigation";
 export default function BorrowForm({ book_id }: { book_id: string }) {
     const [name, setName] = useState("");
     const [netid, setNetid] = useState("");
-
+    const [Errored, setErrored] = useState<string | false>(false);
+    const router = useRouter();
     const handleSubmit = async (e: { preventDefault: () => void }) => {
-        e.preventDefault();
+        try {
+            e.preventDefault();
 
-        const formData = new FormData();
-        formData.append("name", name);
-        formData.append("netid", netid);
-        formData.append("book_id", book_id);
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("netid", netid);
+            formData.append("book_id", book_id);
 
-        const response = await fetch("/api/book/borrow", {
-            method: "POST",
-            body: formData,
-        });
-        if (!response.ok) {
-            throw new Error("Failed to register book");
+            const response = await fetch("/api/book/borrow", {
+                method: "POST",
+                body: formData,
+            });
+            if (!response.ok) {
+                throw new Error("Failed to borrow book");
+            }
+            const result = await response.json();
+            router.push("/ticket/view/" + result.ticket.id);
+        } catch (error) {
+            if (error instanceof Error) setErrored(error.message);
+            else console.log(error);
         }
-        const result = await response.json();
-        console.log(result);
     };
 
     return (
@@ -54,6 +61,7 @@ export default function BorrowForm({ book_id }: { book_id: string }) {
                         onChange={(e) => setNetid(e.target.value)}
                     />
                 </div>
+                {Errored && <div className="md-4 text-red-800">{Errored}</div>}
                 <div className="flex items-center justify-between">
                     <button
                         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"

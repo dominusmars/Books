@@ -1,7 +1,10 @@
 "use client";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 const DeleteBook = ({ book_id }: { book_id: string }) => {
+    const router = useRouter();
+
     const handleClick = async () => {
         const response = await fetch("/api/book/delete", {
             method: "POST",
@@ -12,7 +15,7 @@ const DeleteBook = ({ book_id }: { book_id: string }) => {
         });
 
         const result = await response.json();
-        console.log(result);
+        router.push("/");
     };
 
     return (

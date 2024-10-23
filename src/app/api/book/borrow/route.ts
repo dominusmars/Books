@@ -19,9 +19,13 @@ export async function POST(request: NextRequest) {
         const ticket = await db.borrowBook(book_id, name, netid);
 
         return NextResponse.json({ success: true, ticket: ticket });
-    } catch (error: any) {
-        return new NextResponse(error.message, {
-            status: 400,
+    } catch (error: unknown) {
+        if (error instanceof Error)
+            return new NextResponse(error.message, {
+                status: 400,
+            });
+        return new NextResponse("Unknown Error", {
+            status: 500,
         });
     }
 }

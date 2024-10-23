@@ -8,7 +8,7 @@ export default async function Page({ params }: { params: { book_id: string } }) 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4 text-black">
             <h1 className="text-3xl font-bold mb-6">Borrow: {book.title}</h1>
-            <div className="flex gap-10 justify-center items-center sm:flex-col md:flex-row xs:flex-col">
+            <div className="flex flex-col gap-10 justify-center items-center sm:flex-row">
                 <div className="item w-[30%]">
                     <BookCard book={book} key={book.id} />
                 </div>

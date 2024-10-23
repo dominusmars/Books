@@ -1,18 +1,21 @@
 "use client";
 import React from "react";
-
+import { useRouter } from "next/navigation";
 const DecreaseQty = ({ book_id }: { book_id: string }) => {
+    const router = useRouter();
     const handleClick = async () => {
-        const response = await fetch("/api/book/decreaseQty", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ book_id: book_id }),
-        });
+        try {
+            const response = await fetch("/api/book/qty/decrease", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ book_id: book_id }),
+            });
 
-        const result = await response.json();
-        console.log(result);
+            const result = await response.json();
+            router.refresh();
+        } catch (error) {}
     };
 
     return (
