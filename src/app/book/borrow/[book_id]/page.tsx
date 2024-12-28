@@ -3,7 +3,7 @@ import db from "@/data/db";
 import BorrowForm from "./component/BorrowForm";
 
 export default async function Page({ params }: { params: { book_id: string } }) {
-    const book = await db.getBookById(params.book_id).catch(() => null);
+    const book = await db.getBookById((await params).book_id).catch(() => null);
     if (!book) {
         return (
             <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4 text-black">

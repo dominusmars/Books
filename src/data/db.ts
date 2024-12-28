@@ -4,10 +4,10 @@ import * as lmdb from "lmdb";
 import { randomUUID } from "crypto";
 import fs from "fs";
 import { addDays } from "@/utils/date";
-import { books_v1, google } from "googleapis";
+import { books_v1 } from "googleapis";
 import { BookEntity } from "./book";
 import { TicketEntity } from "./ticket";
-import { UserEntity, UserDocument } from "./User";
+import { UserEntity } from "./User";
 import bcrypt from "bcrypt";
 
 export interface AdminDocument {
@@ -16,7 +16,7 @@ export interface AdminDocument {
     email: string;
     createdAt: number;
 }
-export interface AdminJWT extends Omit<AdminDocument, "password" | "email"> {}
+export type AdminJWT = Omit<AdminDocument, "password" | "email">;
 export interface BookDocument {
     id: string;
     title: string;
@@ -88,7 +88,9 @@ class DB {
         const checkAdminUser = await this.admin.get(username);
         if (checkAdminUser) return;
 
-        !email && console.warn("admin email not set");
+        if (!email) {
+            console.warn("admin email not set");
+        }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -139,7 +141,6 @@ class DB {
             if (date < emailedAt) continue;
 
             const user = this.getUser(ticket);
-
             // Email Person
         }
     }

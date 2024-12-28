@@ -2,7 +2,7 @@ import BookCard from "@/components/BookCard";
 import db from "@/data/db";
 
 export default async function Page({ params }: { params: { book_id: string } }) {
-    const book = await db.getBookById(params.book_id).catch(() => null);
+    const book = await db.getBookById((await params).book_id).catch(() => null);
     if (!book) {
         return (
             <div className="flex justify-center items-center h-screen bg-slate-900">

@@ -2,10 +2,12 @@ import { BookDocument } from "@/data/db";
 import Link from "next/link";
 import React from "react";
 import Image from "next/image";
-import Qrcode from "./Qrcode";
+import QRCode from "react-qr-code";
 type Props = { book: BookDocument; borrowable?: boolean; origin?: string; fullView?: boolean; adminView?: boolean };
 
 function BookCard({ book, borrowable, origin, fullView, adminView }: Props) {
+    const qrcodeUrl = "http://" + origin + "/book/borrow/" + book.id;
+
     if (fullView) {
         return (
             <div className="bg-white p-4 rounded-lg shadow-lg hover:shadow-sm hover:bg-slate-400 flex max-w-[80%]">
@@ -37,7 +39,9 @@ function BookCard({ book, borrowable, origin, fullView, adminView }: Props) {
                                         <span>Borrow</span>
                                     </button>
                                 </Link>
-                                <Qrcode str={"http://" + origin + "/book/borrow/" + book.id} />
+                                <div className="rounded-lg bg-gray-100 p-2">
+                                    <QRCode value={qrcodeUrl} size={128} className="m-4" />
+                                </div>
                             </>
                         )}
                     </div>

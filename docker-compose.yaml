@@ -1,0 +1,17 @@
+services:
+    app:
+        build: .
+        ports:
+            - "3000:3000"
+        volumes:
+            - db-data:/app/db
+        environment:
+            - GOOGLE_API_KEY=
+            - DOMAIN_URL=
+            - INIT_ADMIN_USERNAME=
+            - INIT_ADMIN_PASSWORD=
+            - INIT_ADMIN_EMAIL=
+
+volumes:
+    db-data:
+        driver: local

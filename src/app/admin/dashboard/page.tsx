@@ -1,11 +1,11 @@
 import db, { BookDocument } from "@/data/db";
-import { useAuth } from "@/lib/auth";
+import { verifySession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import React from "react";
 import BookPages from "./components/BookPages";
 
 export default async function AdminDashboardPage() {
-    const user = await useAuth();
+    const user = await verifySession();
     if (!user) return redirect("/admin/login");
 
     const books = await db.getBooks();

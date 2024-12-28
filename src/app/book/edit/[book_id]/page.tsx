@@ -4,12 +4,12 @@ import db from "@/data/db";
 // import IncreaseQty from "./components/IncreaseQty";
 import DeleteBook from "./components/DeleteBook";
 import TicketCard from "@/components/TicketCard";
-import { useAuth } from "@/lib/auth";
+import { verifySession } from "@/lib/auth";
 
 export default async function Page({ params }: { params: { book_id: string } }) {
-    await useAuth();
+    await verifySession();
 
-    const book = await db.getBookById(params.book_id).catch(() => null);
+    const book = await db.getBookById((await params).book_id).catch(() => null);
     if (!book) {
         return (
             <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4 text-black">
