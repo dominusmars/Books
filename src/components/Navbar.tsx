@@ -81,7 +81,7 @@ export default function Navbar() {
                                 isToggleOpen ? "visible opacity-100 backdrop-blur-sm" : "invisible opacity-0"
                             }`}
                         >
-                            <li role="none" className="flex items-stretch">
+                            {/* <li role="none" className="flex items-stretch">
                                 <a
                                     role="menuitem"
                                     aria-haspopup="false"
@@ -90,7 +90,7 @@ export default function Navbar() {
                                 >
                                     <span>Home</span>
                                 </a>
-                            </li>
+                            </li> */}
                             {/* <li role="none" className="flex items-stretch">
                                 <a
                                     role="menuitem"
@@ -112,7 +112,7 @@ export default function Navbar() {
                                     <span>Pricing</span>
                                 </a>
                             </li> */}
-                            <li role="none" className="flex items-stretch">
+                            {/* <li role="none" className="flex items-stretch">
                                 <a
                                     role="menuitem"
                                     aria-haspopup="false"
@@ -121,7 +121,7 @@ export default function Navbar() {
                                 >
                                     <span>About</span>
                                 </a>
-                            </li>
+                            </li> */}
                         </ul>
                     </nav>
                 </div>

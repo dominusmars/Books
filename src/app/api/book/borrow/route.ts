@@ -1,4 +1,4 @@
-import db from "@/db/db";
+import db from "@/data/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -8,15 +8,18 @@ export async function POST(request: NextRequest) {
         const netid = registerForm.get("netid")?.toString();
         if (!netid) throw new Error("No netid");
         const netid_check_reg = new RegExp(/\w+\d/g);
+
         const check = netid_check_reg.test(netid);
         if (!check) throw new Error("netid is not valid");
 
         const name = registerForm.get("name")?.toString();
         if (!name) throw new Error("No name");
+
         const book_id = registerForm.get("book_id")?.toString();
         if (!book_id) throw new Error("No book_id");
 
-        const ticket = await db.borrowBook(book_id, name, netid);
+        const book = await db.getBookById(book_id);
+        const ticket = await book.borrow(name, netid);
 
         return NextResponse.json({ success: true, ticket: ticket });
     } catch (error: unknown) {

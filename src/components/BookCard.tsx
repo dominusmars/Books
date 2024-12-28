@@ -1,13 +1,14 @@
-"use client";
-import { BookDocument } from "@/db/db";
+import { BookDocument } from "@/data/db";
 import Link from "next/link";
 import React from "react";
 import Image from "next/image";
 import Qrcode from "./Qrcode";
-function BookCard({ book, borrowable, origin, fullView }: { book: BookDocument; borrowable?: boolean; origin?: string; fullView?: boolean }) {
+type Props = { book: BookDocument; borrowable?: boolean; origin?: string; fullView?: boolean; adminView?: boolean };
+
+function BookCard({ book, borrowable, origin, fullView, adminView }: Props) {
     if (fullView) {
         return (
-            <div className="bg-white p-4 rounded-lg shadow-lg hover:shadow-sm hover:bg-slate-400 flex">
+            <div className="bg-white p-4 rounded-lg shadow-lg hover:shadow-sm hover:bg-slate-400 flex max-w-[80%]">
                 <Image src={book.img} alt={book.title} className="w-full object-cover rounded" width={100} height={100} />
                 <div className="p-4 ">
                     <Link href={"/book/view/" + book.id}>
@@ -24,7 +25,6 @@ function BookCard({ book, borrowable, origin, fullView }: { book: BookDocument; 
                         </div>
                         <div className="mt-4 flex justify-between items-center">
                             <span className="text-sm">Pages: {book.pageCount}</span>
-                            <span className="text-sm">Qty: {book.qty}</span>
                             <span className="text-sm">Rating: {book.rating}</span>
                         </div>
                     </Link>
@@ -48,7 +48,7 @@ function BookCard({ book, borrowable, origin, fullView }: { book: BookDocument; 
 
     return (
         <div className="bg-white p-4 rounded-lg shadow-lg hover:shadow-sm hover:bg-slate-400">
-            <Link href={"/book/view/" + book.id}>
+            <Link href={(adminView ? "/book/edit/" : "/book/view/") + book.id}>
                 <Image src={book.img} alt={book.title} className="w-full h-96 object-cover rounded" width={100} height={100} />
                 <h2 className="text-2xl font-bold mt-4">{book.title}</h2>
                 <p className="text-gray-600">by {book.author}</p>
@@ -63,11 +63,10 @@ function BookCard({ book, borrowable, origin, fullView }: { book: BookDocument; 
                 </div>
                 <div className="mt-4 flex justify-between items-center">
                     <span className="text-sm">Pages: {book.pageCount}</span>
-                    <span className="text-sm">Qty: {book.qty}</span>
                     <span className="text-sm">Rating: {book.rating}</span>
                 </div>
             </Link>
-            {fullView && (
+            {/* {fullView && (
                 <div className="mt-6 flex justify-center items-center">
                     {borrowable && (
                         <Link href={"/book/borrow/" + book.id}>
@@ -77,7 +76,7 @@ function BookCard({ book, borrowable, origin, fullView }: { book: BookDocument; 
                         </Link>
                     )}
                 </div>
-            )}
+            )} */}
         </div>
     );
 }

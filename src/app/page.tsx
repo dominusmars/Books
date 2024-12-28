@@ -1,5 +1,5 @@
 // pages/index.tsx
-import db from "@/db/db";
+import db from "@/data/db";
 import BookSearch from "../components/BookSearch"; // Adjust the import based on your file structure
 
 const Home = async () => {

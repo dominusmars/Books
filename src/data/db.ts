@@ -1,13 +1,22 @@
 import { open } from "lmdb";
 import * as lmdb from "lmdb";
 
-import crypto, { randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import fs from "fs";
-import { getSHA256Hash } from "@/utils/hash";
 import { addDays } from "@/utils/date";
-import { books_v1, google, GoogleApis } from "googleapis";
-import { delay } from "@/utils/delay";
+import { books_v1, google } from "googleapis";
+import { BookEntity } from "./book";
+import { TicketEntity } from "./ticket";
+import { UserEntity, UserDocument } from "./User";
+import bcrypt from "bcrypt";
 
+export interface AdminDocument {
+    username: string;
+    password: string;
+    email: string;
+    createdAt: number;
+}
+export interface AdminJWT extends Omit<AdminDocument, "password" | "email"> {}
 export interface BookDocument {
     id: string;
     title: string;
@@ -15,26 +24,20 @@ export interface BookDocument {
     description: string;
     tags: string[];
     img: string;
-    qty: number;
     pageCount: number;
     rating: number;
+    borrowable?: boolean;
 }
-export interface Book {
-    id: string;
-    title: string;
-    author: string;
-    description: string;
-    tags: string[];
-    img: string;
-    qty: number;
-    pageCount: number;
-    rating: number;
-    borrowable: boolean;
+export interface Book extends BookDocument {
+    canBorrow(): Promise<boolean>;
+    borrow(personName: string, netId: string): Promise<Ticket>;
+    remove(): Promise<void>;
+    toJson(): BookDocument;
 }
 
-export interface Ticket {
+export interface TicketDocument {
     id: string;
-    person: string;
+    personName: string;
     netid: string;
     dateExpired: string;
     dateBorrowed: string;
@@ -42,19 +45,23 @@ export interface Ticket {
     book: string;
     book_id: string;
 }
-interface BookTicket {
+export interface Ticket extends TicketDocument {
+    extend(): Promise<void>;
+    return(): Promise<void>;
+    toJson(): TicketDocument;
+}
+export interface BookTicket {
     ticket: Ticket;
-    book: BookDocument | undefined;
+    book: Book | null;
 }
 
 class DB {
     private location: string;
-    db: lmdb.RootDatabase<any, lmdb.Key>;
-    emailAt;
-    tickets: lmdb.Database<Ticket, lmdb.Key>;
-    expired_tickets: lmdb.Database<Ticket, lmdb.Key>;
+    db: lmdb.RootDatabase<unknown, lmdb.Key>;
+    tickets: lmdb.Database<TicketDocument, lmdb.Key>;
+    expired_tickets: lmdb.Database<TicketDocument, lmdb.Key>;
     books: lmdb.Database<BookDocument, lmdb.Key>;
-    googleBooks: books_v1.Books;
+    admin: lmdb.Database<AdminDocument, lmdb.Key>;
     constructor() {
         this.location = "./db";
         if (fs.existsSync(this.location)) {
@@ -65,18 +72,59 @@ class DB {
         this.db = open({
             path: this.location,
             compression: true,
-            // valueEncoding: "json",
         });
         this.tickets = this.db.openDB({ name: "tickets" });
         this.expired_tickets = this.db.openDB({ name: "expired_tickets" });
 
         this.books = this.db.openDB({ name: "books" });
-        this.googleBooks = google.books({ version: "v1", auth: process.env["GOOGLE_API_KEY"] });
+        this.admin = this.db.openDB({ name: "admin" });
+        this.initAdminUser();
+    }
+    async initAdminUser() {
+        if (!(process.env["INIT_ADMIN_USERNAME"] && process.env["INIT_ADMIN_PASSWORD"])) return;
+        const username = process.env["INIT_ADMIN_USERNAME"];
+        const password = process.env["INIT_ADMIN_PASSWORD"];
+        const email = process.env["INIT_ADMIN_EMAIL"];
+        const checkAdminUser = await this.admin.get(username);
+        if (checkAdminUser) return;
+
+        !email && console.warn("admin email not set");
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const adminUser: AdminDocument = {
+            username: username,
+            password: hashedPassword,
+            email: email || "none",
+            createdAt: new Date().getTime(),
+        };
+
+        const result = await this.admin.put(adminUser.username, adminUser);
+        if (!result) throw new Error("unable to init admin user");
     }
 
-    async _callExpiredTicket(ticket: Ticket) {
-        // Email Netid To return book
+    async login(username: string, password: string) {
+        const user = await this.admin.get(username);
+        if (!user) throw new Error("Unable to find admin user");
+        const result = await bcrypt.compare(password, user.password);
+        if (!result) {
+            throw new Error("Invalid password");
+        }
+        return user;
     }
+
+    getUser(ticket: TicketDocument): UserEntity;
+    getUser(ticket: Ticket) {
+        const username = ticket.personName;
+        const netId = ticket.netid;
+        return new UserEntity(username, netId);
+    }
+
+    // async _callExpiredTicket(ticket: Ticket) {
+    //     // Email Netid To return book
+    // }
+
     async _checkTicketsForExpired() {
         const tickets = await this.getTickets();
 
@@ -89,25 +137,19 @@ class DB {
 
             const emailedAt = new Date(ticket.emailAt).getTime();
             if (date < emailedAt) continue;
+
+            const user = this.getUser(ticket);
+
             // Email Person
         }
     }
 
-    async _getBook(book: string): Promise<BookDocument> {
-        const id = getSHA256Hash(book);
-
-        const bookDoc = this.books.get(id);
+    async getBookById(book_id: string): Promise<Book> {
+        const bookDoc = this.books.get(book_id);
         if (!bookDoc) {
-            throw new Error(`Unable to find book ${book}`);
+            throw new Error(`Unable to find book id ${book_id}`);
         }
-        return bookDoc;
-    }
-    async getBookById(id: string): Promise<Book> {
-        const bookDoc = this.books.get(id);
-        if (!bookDoc) {
-            throw new Error(`Unable to find book id ${id}`);
-        }
-        const book: Book = { ...bookDoc, borrowable: await this._checkIfBookCanBeBorrowed(id) };
+        const book: Book = new BookEntity(bookDoc);
 
         return book;
     }
@@ -129,36 +171,9 @@ class DB {
             this.returnBook(ticket.id);
         });
     }
-    async increaseQty(book_id: string) {
-        const book = await this.getBookById(book_id);
-        book.qty = book.qty + 1;
-        await this.books.put(book_id, book);
-    }
-    async decreaseQty(book_id: string) {
-        const book = await this.getBookById(book_id);
-        if (book.qty <= 1) throw new Error("Unable to decrease qty below one");
 
-        book.qty = book.qty - 1;
-        await this.books.put(book_id, book);
-    }
-    async addBook(name: string, qty: number): Promise<BookDocument> {
-        if (name.length > 1000) {
-            throw new Error("title cannot be more then 10000 char");
-        }
-
-        // Check if book is in database
-        const checkBook = await this.books.get(name);
-        if (checkBook) throw new Error(`${name} already exists`);
-
-        const id = getSHA256Hash(name);
-
-        const googleRequest = await this.googleBooks.volumes.list({
-            q: name,
-        });
-        if (!googleRequest.data.items || googleRequest.data.items?.length == 0) {
-            throw new Error(`Unable to find book with name ${name}`);
-        }
-        const info = googleRequest.data.items[0].volumeInfo;
+    async addBook(book: books_v1.Schema$Volume): Promise<BookDocument> {
+        const info = book.volumeInfo;
         const title = info?.title;
         const author = (info?.authors && info.authors.join(",")) || "Unknown";
         const description = info?.description || "None";
@@ -167,13 +182,14 @@ class DB {
         const pageCount = info?.pageCount || 0;
         const rating = info?.averageRating || 0;
 
-        if (!title) throw new Error(`No title found for ${name}`);
+        const id = randomUUID();
+
+        if (!title) throw new Error(`No title found for ${book.etag}`);
 
         const Book: BookDocument = {
             author: author,
             description: description,
             title: title,
-            qty: qty,
             id: id,
             tags: tags,
             img: img,
@@ -203,13 +219,14 @@ class DB {
 
         return tickets;
     }
-    async getTicket(ticket_id: string) {
+    async getTicketById(ticket_id: string) {
         const ticket = this.tickets.get(ticket_id);
         if (!ticket) {
             throw new Error(`Unable to find ticket ${ticket_id}`);
         }
-        return ticket;
+        return new TicketEntity(ticket);
     }
+
     async _getTicketWithBook(book_id: string) {
         const tickets = [];
         for await (const { value } of this.tickets.getRange()) {
@@ -220,9 +237,24 @@ class DB {
 
         return tickets;
     }
+    async getBookTickets() {
+        const bookTickets: BookTicket[] = [];
+        for await (const { value } of this.tickets.getRange()) {
+            const book = this.books.get(value.book_id);
+            if (!book) {
+                console.log(`unable to find book ${value.book_id} ${value.book}`);
+            }
 
+            bookTickets.push({
+                book: book ? new BookEntity(book) : null,
+                ticket: new TicketEntity(value),
+            });
+        }
+
+        return bookTickets;
+    }
     async getBookTicketsByNetID(netid: string): Promise<BookTicket[]> {
-        const booktickets = [];
+        const bookTickets: BookTicket[] = [];
         for await (const { value } of this.tickets.getRange()) {
             if (!(value.netid == netid)) continue;
 
@@ -231,57 +263,55 @@ class DB {
                 console.log(`unable to find book ${value.book_id} ${value.book}`);
             }
 
-            booktickets.push({
-                book: book,
-                ticket: value,
+            bookTickets.push({
+                book: book ? new BookEntity(book) : null,
+                ticket: new TicketEntity(value),
             });
         }
 
-        return booktickets;
+        return bookTickets;
     }
-    async _checkIfBookCanBeBorrowed(book_id: string) {
+    async checkIfBookCanBeBorrowed(book_id: string) {
         const book = await this.books.get(book_id);
         if (!book) {
             throw new Error("Unable to find book by id");
         }
 
         const tickets = await this._getTicketWithBook(book_id);
-        return tickets.length < book.qty;
+        return tickets.length == 0;
     }
 
-    async borrowBook(book_id: string, personsName: string, netid: string): Promise<Ticket> {
-        const book = await this.getBookById(book_id);
-
-        if (!(await this._checkIfBookCanBeBorrowed(book_id))) {
+    async borrowBook(book: Book, personsName: string, netid: string): Promise<Ticket> {
+        if (!(await db.checkIfBookCanBeBorrowed(book.id))) {
             throw new Error("Book cannot be borrowed already checked out");
         }
 
-        const ticket: Ticket = {
+        const ticket: Ticket = new TicketEntity({
             book: book.title,
-            book_id: book_id,
+            book_id: book.id,
             dateBorrowed: new Date().toISOString(),
             dateExpired: addDays(new Date(), 14).toISOString(),
             id: randomUUID(),
             netid: netid,
-            person: personsName,
+            personName: personsName,
             emailAt: addDays(new Date(), 14).toISOString(),
-        };
+        });
 
         await this.tickets.put(ticket.id, ticket);
         return ticket;
     }
     async returnBook(ticket_id: string) {
-        const ticket = await this.getTicket(ticket_id);
+        const ticket = await this.getTicketById(ticket_id);
         if (!ticket) {
             throw new Error("Unable to find ticket");
         }
 
-        await this.tickets.remove(ticket_id);
-        await this.expired_tickets.put(ticket_id, ticket);
+        this.tickets.removeSync(ticket_id);
+        await this.expired_tickets.putSync(ticket_id, ticket);
     }
 
     async extendTicket(ticket_id: string) {
-        const ticket = await this.getTicket(ticket_id);
+        const ticket = await this.getTicketById(ticket_id);
         if (!ticket) {
             throw new Error("Unable to find ticket");
         }

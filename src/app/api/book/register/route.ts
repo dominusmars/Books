@@ -1,21 +1,22 @@
-import db from "@/db/db";
+import db from "@/data/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-    const registerForm = await request.formData();
+    const bookRequest = await request.json();
 
     try {
-        const title = registerForm.get("title")?.toString();
-        if (!title) throw new Error("No title");
-        const qty = parseInt(registerForm.get("qty")?.toString() || "1");
-        if (!qty) throw new Error("No qty");
-
-        let book = await db.addBook(title, qty);
+        const book = await db.addBook(bookRequest);
 
         return NextResponse.json({ success: true, book_id: book.id });
-    } catch (error: any) {
-        return new NextResponse(error.message, {
-            status: 400,
-        });
+    } catch (error: unknown) {
+        if (error instanceof Error)
+            return new NextResponse(error.message, {
+                status: 400,
+            });
+        else {
+            return new NextResponse("An error occurred", {
+                status: 500,
+            });
+        }
     }
 }

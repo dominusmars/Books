@@ -1,10 +1,10 @@
 "use client";
-import { Ticket } from "@/db/db";
+import { TicketDocument } from "@/data/db";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 import { format } from "date-fns";
-const TicketCard: React.FC<{ ticket: Ticket; adminView?: boolean }> = ({ ticket, adminView = false }) => {
+const TicketCard: React.FC<{ ticket: TicketDocument; adminView?: boolean }> = ({ ticket, adminView = false }) => {
     const router = useRouter();
 
     const [Errored, setErrored] = useState<string | false>(false);
@@ -18,8 +18,7 @@ const TicketCard: React.FC<{ ticket: Ticket; adminView?: boolean }> = ({ ticket,
                 },
                 body: JSON.stringify({ ticket_id: ticket.id }),
             });
-            const result = await response.json();
-            console.log("Return book result:", result);
+            await response.json();
             router.push("/");
         } catch (error) {
             console.error("Error returning book:", error);
@@ -49,7 +48,7 @@ const TicketCard: React.FC<{ ticket: Ticket; adminView?: boolean }> = ({ ticket,
         <div className="bg-white border rounded-lg shadow-md p-6 m-4">
             <h2 className="text-xl font-semibold mb-2">{ticket.book}</h2>
             <p className="text-gray-700">
-                <strong>Person:</strong> {ticket.person}
+                <strong>Person:</strong> {ticket.personName}
             </p>
             <p className="text-gray-700">
                 <strong>NetID:</strong> {ticket.netid}

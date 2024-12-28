@@ -1,10 +1,11 @@
-import db from "@/db/db";
+import db from "@/data/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest, { params }: { params: { ticket_id: string } }) {
     const ticket_id = params.ticket_id;
     try {
-        await db.extendTicket(ticket_id);
+        const ticket = await db.getTicketById(ticket_id);
+        await ticket.extend();
 
         return NextResponse.json({ success: true });
     } catch (error: unknown) {
